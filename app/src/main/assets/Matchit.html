@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+ <html>
+ <head>
+
+<!-- Include meta tag to ensure proper rendering and touch zooming -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+  <link rel="stylesheet" href="css/themes/jquery.mobile.icons.min.css" />
+  <link rel="stylesheet" href="css/themes/RedTheme.css" />
+  <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile.structure-1.4.5.min.css" />
+
+<!-- Include jQuery Mobile stylesheets -->
+<!--<link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css">-->
+
+<!-- Include the jQuery library -->
+<script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+
+<script>
+    $(document).bind('mobileinit',function(){
+        $.mobile.pushStateEnabled = false;
+    });
+</script>
+<!-- Include the jQuery Mobile library -->
+<script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+
+
+<script>
+
+var imgUrlArr=[];
+var imgCapArr=[];
+
+var imgUrlJumArr=[];
+var imgCapJumArr=[];
+
+var imgUrlResArr=[];
+var imgCapResArr=[];
+
+var numOfImg=5;
+var gSelImgUrl='';
+var gSelCaption='';
+var passCriteria=60;
+var roundNum=1;
+
+var commonsUrl="https://commons.wikimedia.org/w/api.php";
+var mediawikiUrl="https://en.wikipedia.org/w/api.php";
+var wikiUrl=commonsUrl;
+
+var goToHomeFlag=false;
+
+
+
+$(function(){
+
+   $("#alertPopUp4").on("popupafterclose", function () {
+            if(!goToHomeFlag){
+			$.mobile.navigate( "#mempage" );
+			}else{
+			goToHomeFromQuiz();
+			}
+    });
+
+	   $("#alertPopUp5").on("popupafterclose", function () {
+            $.mobile.navigate( "#homepage" );
+
+    });
+
+	 $("#alertPopUp6,#alertPopUp7").on("popupafterclose", function () {
+		if(goToHomeFlag){
+			goToHomeFlag=false;
+            $.mobile.navigate( "#homepage" );
+
+		}
+    });
+
+
+
+
+});
+
+
+
+$(document).on("pagebeforeshow","#quizpage",function(event){
+showLoader();
+ imgUrlJumArr=[];
+ imgCapJumArr=[];
+
+for(var i=0;i<imgUrlArr.length;i++){
+ imgUrlJumArr.push(imgUrlArr[i]);
+ imgCapJumArr.push(imgCapArr[i]);
+}
+
+imgUrlJumArr=shuffle(imgUrlJumArr);
+imgCapJumArr=shuffle(imgCapJumArr);
+
+refreshColumns();
+  // disable previous selected links
+   /*   $('[data-role=navbar] a').removeClass("ui-btn-active");
+      // select home link
+      var menuLink = $('[data-role=navbar] a[href="#columnA"]');
+      menuLink.addClass("ui-btn-active");*/
+	  $("#matchItBtn").addClass("ui-btn-active");
+	  $("#columnABtn").click();
+hideLoader();
+
+});
+
+$(document).on("pageaftershow","#quizpage",function(event){
+	  $("#columnABtn").click();
+	   $("#columnABtn").addClass("ui-btn-active");
+
+});
+
+$(document).on("pagebeforeshow","#mempage",function(event){
+
+
+showLoader();
+getRandomImages(numOfImg);
+$('#imReadyBtn').addClass("ui-btn-active");
+
+});
+
+
+
+
+function randomTimeStamp(start, end) {
+   return (new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime())));
+}
+//Object Name, Image Description or Comment
+//alert(randomTimeStamp(new Date(2001, 0, 15), new Date()));
+
+function getImages(numOfImages){
+//uses timestamp
+//alert("Inside getImages");
+/*
+
+https://en.wikipedia.org/w/api.php?action=query
+&list=allimages
+&format=jsonfm
+&aisort=timestamp
+&aidir=ascending
+&aistart=2011-03-20T11%3A52%3A34.921Z
+&aiend=2015-01-13T00%3A00%3A00.921Z
+&aiprop=timestamp%7Cuser%7Ccomment%7Curl%7Cextmetadata
+&ailimit=5
+
+reference
+http://jsfiddle.net/ht9wd/
+*/
+var startTime=randomTimeStamp(new Date(2001, 0, 15), new Date());
+//alert(startTime);
+var isoStartTime=startTime.toISOString();
+//alert(isoStartTime);
+var endTime=new Date();
+//alert(endTime);
+var isoEndTime=endTime.toISOString();
+//alert(isoEndTime);
+
+/*var requestUrl="https://en.wikipedia.org/w/api.php?action=query&list=allimages&format=json"+
+"&aisort=timestamp&aidir=ascending&aistart=2011-03-20T11%3A52%3A34.921Z&aiend=2015-01-13T00%3A00%3A00.921Z"+
+"&aiprop=timestamp%7Cuser%7Ccomment%7Curl%7Cextmetadata"+
+"&ailimit=5&callback=?";*/
+var props="timestamp|user|comment|url|extmetadata";
+//var commonsUrl="https://commons.wikimedia.org/w/api.php";
+//var wikiUrl="https://en.wikipedia.org/w/api.php";
+var requestUrl=wikiUrl+"?action=query&list=allimages&format=json"+
+"&aisort=timestamp&aidir=ascending&aistart="+encodeURIComponent(isoStartTime)+"&aiend="+encodeURIComponent(isoEndTime)+
+"&aiprop="+encodeURIComponent(props)+
+"&ailimit="+numOfImages+"&callback=?";
+
+//alert(requestUrl);
+ $.ajax({url: requestUrl,
+  dataType: 'jsonp',
+    type: 'GET',
+ 				success: function(result){
+        //alert(result);
+        populateArrays(result);
+    		},
+        error: function(xhr){
+
+        var s="";
+        for(var c in xhr){
+        s+= (c +" : "+xhr["s"]+"\n");
+        }
+            //alert(s);
+        }
+
+        });
+
+}
+
+function getRandomImages(numOfImages){
+$("#imgBoxList").html("");
+//var commonsUrl="https://commons.wikimedia.org/w/api.php";
+//var wikiUrl="https://en.wikipedia.org/w/api.php";
+var requestUrl=wikiUrl+"?action=query&list=random&format=json&rnnamespace=6&rnlimit="+numOfImages+"&callback=?";
+
+$.ajax({url: requestUrl,
+  dataType: 'jsonp',
+    type: 'GET',
+ 				success: function(result){
+        //alert(result);
+       var titles= getImageTitles(result);
+	   populateArraysUsingTitles(titles);
+    		},
+        error: function(xhr){
+
+        var s="";
+        for(var c in xhr){
+        s+= (c +" : "+xhr["s"]+"\n");
+        }
+            //alert(s);
+        }
+
+        });
+
+
+}
+
+function getImageTitles(obj){
+
+var randomArr=obj.query.random;
+var titles=[];
+
+for(var i=0;i<randomArr.length;i++){
+var item=randomArr[i];
+titles.push(item.title);
+}
+return titles;
+
+}
+
+function populateArraysUsingTitles(titles){
+
+var sTitle="";
+
+for(var i=0;i<titles.length;i++){
+console.log(titles[i]);
+if(sTitle==""){
+sTitle+=titles[i];
+
+}else{
+sTitle += ("|"+titles[i]);
+
+}
+
+}//end for
+
+//var commonsUrl="https://commons.wikimedia.org/w/api.php";
+//var wikiUrl="https://en.wikipedia.org/w/api.php";
+var props="user|comment|url|extmetadata";
+var imgWidth=400;
+/*
+/w/api.php?action=query&prop=imageinfo&format=json&iiprop=comment%7Curl%7Cextmetadata&iiurlwidth=500&titles=File%3AVoodoocultVoodoocultFrontCover.jpg%7CFile%3ABijapur%20sultanate.JPG%7CFile%3ABeatrix%20Potter%2C%20Mrs%20Tiggy-Winkle%2C%20Peter%20Rabbit.jpg
+
+*/
+var requestUrl=wikiUrl+"?action=query&prop=imageinfo&format=json&iiprop="+encodeURIComponent(props)+"&iiurlwidth="+imgWidth+"&titles="+encodeURIComponent(sTitle)+"&iiextmetadatalanguage=en&callback=?";
+
+$.ajax({url: requestUrl,
+  dataType: 'jsonp',
+    type: 'GET',
+ 				success: function(result){
+        //alert(result);
+				fillArraysWithImageInfo(result);
+				hideLoader();
+    		},
+        error: function(xhr){
+
+        var s="";
+        for(var c in xhr){
+        s+= (c +" : "+xhr["s"]+"\n");
+        }
+            //alert(s);
+			hideLoader();
+        }
+
+        });
+
+
+
+}
+
+
+function fillArraysWithImageInfo(obj){
+
+for(var pg in obj.query.pages){
+//alert(pg);
+
+var page=obj.query.pages[pg];
+var img=page.imageinfo[0];
+var imgUrl=img.thumburl;
+
+var imgName=img.extmetadata.ObjectName.value;
+var imgComment=img.comment;
+var imgDesc=img.extmetadata.ImageDescription!=null?img.extmetadata.ImageDescription.value:"";
+//var imgCap=imgName +" - "+ ((imgDesc!="")?imgDesc:imgComment);
+var imgCap=imgName;
+imgCap=$('<p>'+imgCap+'</p>').text();
+
+ imgUrlArr.push(imgUrl);
+ imgCapArr.push(imgCap);
+
+
+}
+
+$("#imgBoxList").html("");
+for(i=0;i<imgUrlArr.length;i++){
+var html="<li data-icon='false'><img class='enlargeImg' src='"+imgUrlArr[i]+"' style='width: 100%;'></img><p><div style='white-space: normal'>"+imgCapArr[i]+"<div></p></li>";
+$("#imgBoxList").append(html);
+
+}
+
+$('.enlargeImg').click(function(){
+
+var imgUrl=$(this).attr('src');
+//alert(imgUrl);
+var str="<img src='"+imgUrl+"' style='width: 100%;'></img>";
+$('#imgPopupDiv').html(str);
+
+	 $( "#imgPopup" ).on({
+			popupbeforeposition: function() {
+				var maxHeight = $( window ).height() - 60 + "px";
+				$( "#imgPopup img" ).css( "max-height", maxHeight );
+			}
+		});
+
+	$( "#imgPopup" ).popup( "open", {
+	  positionTo: "window"
+	} );
+
+});
+
+
+$("#imgBoxList").listview('refresh');
+    // $('[data-role="content"]').trigger('create');
+   // $(".example-wrapper").iscrollview("refresh");
+}
+
+
+/*function populateArrays(result){
+
+var obj=result;
+//alert(obj.query.allimages[0].url);
+
+for(var i=0;i<obj.query.allimages.length;i++){
+
+var img=obj.query.allimages[i];
+var imgUrl=img.url;
+var imgName=img.extmetadata.ObjectName.value;
+var imgComment=img.comment;
+var imgDesc=img.extmetadata.ImageDescription!=null?img.extmetadata.ImageDescription.value:"";
+var imgCap=imgName +" - "+ ((imgDesc!="")?imgDesc:imgComment);
+
+imgCap=$('<p>'+imgCap+'</p>').text();
+
+ imgUrlArr.push(imgUrl);
+ imgCapArr.push(imgCap);
+
+ //imgUrlJumArr.push(imgUrl);
+ //imgCapJumArr.push(imgCap);
+
+
+}
+
+//imgUrlJumArr=shuffle(imgUrlJumArr);
+//imgCapJumArr=shuffle(imgCapJumArr);
+
+
+$("#imgBoxList").html("");
+for(i=0;i<imgUrlArr.length;i++){
+var html="<li data-icon='false'><img class='enlargeImg' src='"+imgUrlArr[i]+"' style='width: 100%;'></img><p><div style='white-space: normal'>"+imgCapArr[i]+"<div></p></li>";
+$("#imgBoxList").append(html);
+
+}
+
+$('.enlargeImg').click(function(){
+
+var imgUrl=$(this).attr('src');
+//alert(imgUrl);
+var str="<img src='"+imgUrl+"' style='width: 100%;'></img>";
+$('#imgPopupDiv').html(str);
+
+	 $( "#imgPopup" ).on({
+			popupbeforeposition: function() {
+				var maxHeight = $( window ).height() - 60 + "px";
+				$( "#imgPopup img" ).css( "max-height", maxHeight );
+			}
+		});
+
+	$( "#imgPopup" ).popup( "open", {
+	  positionTo: "window"
+	} );
+
+});
+
+
+$("#imgBoxList").listview('refresh');
+
+}*/
+
+
+function refreshMemPage(){
+showLoader();
+if(imgUrlArr.length<numOfImg){
+return;
+}
+
+for(var i=0;i<numOfImg;i++){
+imgUrlArr.pop();
+imgCapArr.pop();
+}
+
+//getImages(numOfImg);
+getRandomImages(numOfImg);
+}
+
+function shuffle(array) {
+  var currentIndex = array.length, temporaryValue, randomIndex;
+
+  // While there remain elements to shuffle...
+  while (0 !== currentIndex) {
+
+    // Pick a remaining element...
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex -= 1;
+
+    // And swap it with the current element.
+    temporaryValue = array[currentIndex];
+    array[currentIndex] = array[randomIndex];
+    array[randomIndex] = temporaryValue;
+  }
+
+  return array;
+}
+
+
+
+function setSelImage(obj){
+
+var imgUrl=$(obj).children('img').attr("src");
+gSelImgUrl=imgUrl;
+//alert(gSelImgUrl);
+
+//var img=$(obj).html();
+//$('#selImg').html(img);
+$('#selImg').attr('src',imgUrl);
+$('#selList').listview('refresh');
+}
+
+function setSelCaption(obj){
+
+ var capStr=$(obj).children('div').text();
+ gSelCaption=capStr;
+ //alert(gSelCaption);
+ var html1="<p><div style='white-space: normal'>";
+ var html2="</div></p>";
+
+var cap=$(obj).text();
+
+if(cap!=null && cap.length>100){
+cap=cap.substr(0,100)+"..";
+}
+$('#selCaption').html(html1 + cap + html2);
+$('#selList').listview('refresh');
+}
+
+function match(){
+if(gSelImgUrl==null || gSelImgUrl=='' || gSelCaption==null || gSelCaption==''){
+//alert("Choose a Picture and a Caption to Match");
+showAlert("alertPopUp1");
+return;
+}
+
+
+ imgUrlResArr.push(gSelImgUrl);
+ imgCapResArr.push(gSelCaption);
+
+ //var html="<li><a href='#' id='"+gSelImgUrl +"||"+gSelCaption+"' onclick='unmatch(this)'><img src='"+gSelImgUrl+"' style='width: 100%;'></img></br>"+gSelCaption+"</a></br></br></br></li>";
+// $('#matchedList').append(html);
+
+var imgIndex=imgUrlJumArr.indexOf(gSelImgUrl);
+var capIndex=imgCapJumArr.indexOf(gSelCaption);
+
+imgUrlJumArr.splice(imgIndex, 1);
+imgCapJumArr.splice(capIndex, 1);
+
+
+
+//$('#selImg').html("");
+$('#selImg').attr("src","");
+$('#selImg').attr("alt","No Image");
+$('#selCaption').html("Choose a picture and caption & click on <b>Match it</b>");
+gSelImgUrl="";
+gSelCaption="";
+refreshColumns();
+
+if(imgUrlResArr.length==imgUrlArr.length){
+showAlert("alertPopUp3");
+}
+
+}
+
+function unmatch(obj){
+var fullID=obj.id;
+
+var arr=fullID.split("|$$vig_dim$$|");
+
+//alert(arr);
+
+var imgIndex=imgUrlResArr.indexOf(arr[0]);
+var capIndex=imgCapResArr.indexOf(arr[1]);
+
+var imgUrl=imgUrlResArr[imgIndex];
+var cap=imgCapResArr[capIndex];
+
+imgUrlResArr.splice(imgIndex, 1);
+imgCapResArr.splice(capIndex, 1);
+
+
+imgUrlJumArr.push(imgUrl);
+imgCapJumArr.push(cap);
+
+
+refreshColumns();
+}
+
+
+function refreshColumns(){
+$("#colAList").html("");
+$("#colBList").html("");
+$('#matchedList').html("");
+
+for(i=0;i<imgUrlJumArr.length;i++){
+var html="<li data-icon='tag'><a href='#' onclick='setSelImage(this)'><img class='qenlargeImg' src='"+imgUrlJumArr[i]+"' style='width: 100%;'></img></a></li>";
+$("#colAList").append(html);
+
+html="<li data-icon='false'><a href='#' onclick='setSelCaption(this)'><p><div style='white-space: normal'>"+imgCapJumArr[i]+"</div></p></a></li>";
+$("#colBList").append(html);
+}
+
+for(i=0;i<imgUrlResArr.length;i++){
+ var html="<li data-icon='back'><a href='#' id='"+imgUrlResArr[i] +"|$$vig_dim$$|"+imgCapResArr[i]+"' onclick='unmatch(this)'><img src='"+imgUrlResArr[i]+"' style='width: 100%;'></img><p><div style='white-space: normal'>"+imgCapResArr[i]+"</div></p></a></li>";
+ $('#matchedList').append(html);
+}
+
+
+
+$("#colAList").listview('refresh');
+$("#colBList").listview('refresh');
+$('#matchedList').listview('refresh');
+$('#selList').listview('refresh');
+
+
+$('.qenlargeImg').click(function(){
+
+var imgUrl=$(this).attr('src');
+//alert(imgUrl);
+var str="<img src='"+imgUrl+"' style='width: 100%;'></img>";
+$('#qimgPopupDiv').html(str);
+
+	 $( "#qimgPopup" ).on({
+			popupbeforeposition: function() {
+				var maxHeight = $( window ).height() - 60 + "px";
+				$( "#qimgPopup img" ).css( "max-height", maxHeight );
+			}
+		});
+
+	$( "#qimgPopup" ).popup( "open", {
+	  positionTo: "window"
+	} );
+
+});
+
+   // $('[data-role="content"]').trigger('create');
+   // $(".example-wrapper").iscrollview("refresh");
+}
+
+function submitMatch(){
+
+
+if(imgUrlJumArr.length!=0 || imgCapJumArr!=0){
+showAlert("alertPopUp2");
+return;
+}
+
+/*
+var imgUrlArr=[];
+var imgCapArr=[];
+
+var imgUrlJumArr=[];
+var imgCapJumArr=[];
+
+var imgUrlResArr=[];
+var imgCapResArr=[];
+
+*/
+var totalScore=imgUrlArr.length;
+var score=0;
+
+for(var i=0;i<imgUrlResArr.length;i++){
+var imgUrlRes=imgUrlResArr[i];
+var imgCapRes=imgCapResArr[i];
+
+var imgUrlIndex=imgUrlArr.indexOf(imgUrlRes);
+var imgCap=imgCapArr[imgUrlIndex];
+
+console.log("imgCapRes : "+imgCapRes+"\nimgCap : "+imgCap);
+
+if(imgCapRes==imgCap){
+score++;
+console.log("score : "+score);
+}
+
+}
+
+var percentage=((score*100)/totalScore)
+percentage= Math.round(percentage * 100) / 100
+
+if( percentage >= passCriteria){
+//move to next level
+roundNum++;//increment round number
+var s= "You completed Round "+(roundNum-1)+" with "+percentage+"%. You move on to Round "+roundNum+".";
+$("#nextRoundSpan").text(s);
+showAlert("alertPopUp4");
+
+}else{
+//end game
+var s="You reached till Round "+roundNum+". Your score in this round is "+percentage+"% (less than 60%).";
+$("#gameOverSpan").text(s);
+showAlert("alertPopUp5");
+
+}
+
+
+
+}
+
+function goToNextRound(){
+
+
+
+imgUrlResArr=[];
+imgCapResArr=[];
+imgUrlJumArr=[];
+imgCapJumArr=[];
+hideAlert("alertPopUp4");
+//$.mobile.navigate( "#mempage" );
+
+}
+
+function gameOver(){
+
+resetAllData();
+hideAlert("alertPopUp5");
+//$.mobile.navigate( "#homepage" );
+
+}
+
+function goToHomeFromMem(){
+//var r = confirm("This will end the current game. Do you still want to continue?");
+//if (r == true) {
+showAlert("alertPopUp7");
+ //$.mobile.navigate( "#homepage" );
+//}
+
+}
+function goToHomeFromQuiz(){
+//var r = confirm("This will end the current game. Do you still want to continue?");
+//if (r == true) {
+showAlert("alertPopUp6");
+ //$.mobile.navigate( "#homepage" );
+//}
+
+}
+
+function quitGame()
+{
+goToHomeFlag=true;
+hideAlert("alertPopUp4");
+//goToHomeFromQuiz();
+}
+
+function goToHomeYesFromQuiz(){
+resetAllData();
+goToHomeFlag=true;
+hideAlert("alertPopUp6");
+}
+
+function goToHomeYesFromMem(){
+resetAllData();
+goToHomeFlag=true;
+hideAlert("alertPopUp7");
+}
+
+function resetAllData(){
+imgUrlArr=[];
+ imgCapArr=[];
+
+ imgUrlJumArr=[];
+ imgCapJumArr=[];
+
+ imgUrlResArr=[];
+ imgCapResArr=[];
+
+ roundNum=1;//reset round number
+
+}
+
+function showLoader(){
+ var interval = setInterval(function(){
+        $.mobile.loading('show');
+        clearInterval(interval);
+    },1);
+
+
+}
+
+function hideLoader(){
+    var interval = setInterval(function(){
+        $.mobile.loading('hide');
+        clearInterval(interval);
+    },1);
+}
+
+function showAlert(popupId){
+$( "#"+popupId ).popup( "open", {
+	  positionTo: "window"
+	} );
+
+}
+
+function hideAlert(popupId){
+$( "#"+popupId ).popup( "close");
+}
+
+</script>
+
+</head>
+<body>
+
+<div data-role="page" id="homepage" data-theme="a">
+  <div data-role="header" data-position="fixed">
+    <h1>Match it</h1>
+  </div>
+  <div data-role="main" class="ui-content">
+  <a href="#mempage" class="ui-btn ui-shadow ui-corner-all ui-btn-icon-left ui-icon-plus" >New Game</a>
+  <a href="#inspage" class="ui-btn ui-shadow ui-corner-all ui-btn-icon-left ui-icon-info">Instructions</a>
+  </div>
+
+</div>
+
+
+<div data-role="page" id="inspage" data-theme="b">
+  <div data-role="header" data-position="fixed" data-theme="a">
+    <h1>Instructions</h1>
+	<a href="#" class="ui-btn ui-btn-right ui-icon-back ui-btn-icon-notext ui-shadow ui-corner-all" data-rel="back">Go Back</a>
+  </div>
+  <div data-role="main" class="ui-content">
+
+	<p><b><i>Match it</i></b> is an infinite picture - caption matching memory game. It has 2 parts - </p>
+
+	<ol>
+	<li><h3><b>Memorizzzzeee</b></h3>
+
+		<p>
+		Here you need to memorize the pictures along with its captions. Once you are done memorizing, click on <b><i>I'm Ready</i></b> button.
+
+		</p>
+
+	</li>
+
+	<li><h3><b>Match it</b></h3>
+	<p>
+	Here you need to match the pictures with its corresponding captions.
+	</p>
+
+		<ul>
+		<li>Click on <b><i>Match it</i></b>  button or the item to match.</li>
+		<li>Click on <b><i>Submit</i></b>  button after you complete matching all the pictures with captions</li>
+		</ul>
+	<p>You need to score  <b><i>atleast 60%</i></b> to qualify to the next round</p>
+	</li>
+	</ol>
+
+
+
+
+
+
+</div>
+
+</div>
+
+<div data-role="page" id="mempage" data-theme="b">
+  <div data-role="header" data-position="fixed" data-theme="a">
+	<button class="ui-btn ui-btn-left ui-icon-home ui-btn-icon-notext ui-shadow ui-corner-all" onclick="goToHomeFromMem()"></button>
+    <h1>Memorizzzzeee</h1>
+    <button class="ui-btn ui-btn-inline ui-btn-right ui-btn-icon-left ui-icon-refresh ui-btn-icon-notext ui-shadow ui-corner-all" onclick="refreshMemPage()">Refresh</button>
+  </div>
+  <div data-role="main" class="content">
+
+
+
+ <ol id="imgBoxList" data-role="listview" data-inset="true">
+
+ </ol>
+
+
+
+  </div>
+   <div data-role="footer" data-position="fixed" style="text-align:center;" data-theme="a">
+    <a href="#quizpage" id='imReadyBtn' class="ui-btn ui-shadow ui-corner-all ui-btn-icon-left ui-icon-action ui-btn-active">I'm Ready</a>
+	<a href="#memInfoPopUp" data-rel="popup" data-position-to="window" class="ui-btn ui-btn-right ui-icon-info ui-btn-icon-notext ui-shadow ui-corner-all"></a>
+  </div>
+
+  <div data-role="popup" id="imgPopup" data-overlay-theme="a" data-corners="false" data-tolerance="30,15">
+  <a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
+  <div id="imgPopupDiv"></div>
+</div>
+
+ <div data-role="popup" id="memInfoPopUp" class="ui-content" style="max-width:90%">
+    <a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
+<p>
+Memorize the pictures along with its captions. Once you are done memorizing, click on <b><i>I'm Ready</i></b> button.</br>
+
+Click on  <button class="ui-btn ui-icon-refresh ui-btn-inline ui-btn-icon-notext"></button> button if the pictures are not loaded properly.</br></br>
+
+Click on a picture to enlarge it.
+
+</p>
+</div>
+
+
+	<div data-role="popup" id="alertPopUp7" data-overlay-theme="a" data-dismissible="false" style="max-width:90%;" data-theme="a">
+    <div data-role="header" data-theme="a" >
+    <h1>Warning!!!</h1>
+    </div>
+    <div data-theme="a" role="main" class="content" data-theme="a">
+        <h3 class="ui-title">This will end the current game. Do you still want to continue?</h3>
+
+ 		<button  data-theme="a" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" onclick="goToHomeYesFromMem()">Yes</button>
+        <a href="#"  data-theme="a" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back">No</a>
+ 
+    </div>
+	</div>
+
+</div>
+
+<div data-role="page" id="quizpage" data-theme="b">
+  <div data-role="header" data-position="fixed" data-theme="a">
+    <button class="ui-btn ui-btn-left ui-icon-home ui-btn-icon-notext ui-shadow ui-corner-all" onclick="goToHomeFromQuiz()"></button>
+	<h1>Match it</h1>
+	<a href="#quizInfoPopUp" data-rel="popup" data-position-to="window" class="ui-btn ui-btn-right ui-icon-info ui-btn-icon-notext ui-shadow ui-corner-all"></a>
+  </div>
+
+  <div data-role="main" class="content">
+
+
+	<div data-role="tabs" id="tabs" data-theme="a">
+
+	<div data-role="navbar" data-theme="a">
+    <ul>
+	  <li><a data-theme="a" id="columnABtn" href="#columnA" data-ajax="false" class="ui-btn-active">Pictures</a></li>
+	<li><a data-theme="a" href="#columnB" data-ajax="false" >Captions</a></li>
+      <li><a  data-theme="a" href="#matchedpage" data-ajax="false">Matched</a></li>
+    </ul>
+  </div>
+
+   <div id="columnA" >
+  <!-- Image Content -->
+ <ol id="colAList" data-role="listview" data-inset="true">
+
+ </ol>
+  </div>
+
+     <div id="columnB">
+   <!-- Caption Content -->
+ <ol id="colBList" data-role="listview" data-filter="true" data-filter-placeholder="Search captions.." data-inset="true">
+
+ </ol>
+  </div>
+
+
+
+
+
+ <div id="matchedpage">
+ <ol id="matchedList" data-role="listview" data-filter="true" data-filter-placeholder="Search captions.."  data-inset="true">
+
+ </ol>
+  </div>
+
+
+  </div><!-- tabs -->
+
+
+
+
+  </div>
+
+   <div data-role="footer" data-position="fixed" style="text-align:center;" data-theme="a">
+ <ul id="selList" data-role="listview" data-inset="true">
+ <!--<li data-role="list-divider">Match items by clicking <button class="ui-btn ui-shadow ui-corner-all ui-btn-icon-left ui-icon-action ui-btn-icon-notext "  onclick="match()">Match it</button> below</li>-->
+ <li data-icon='false'><a id="selItem" onclick="match()"><img id="selImg" src="" alt="No Image"/><p id="selCaption" style='white-space: normal'>Choose a picture and caption & click on <b>Match it</b></p></a></li>
+ </ul>
+
+   <button class="ui-btn ui-shadow ui-corner-all ui-btn-icon-left ui-icon-lock" onclick="submitMatch()">Submit</button>
+   <button id="matchItBtn" class="ui-btn ui-shadow ui-corner-all ui-btn-icon-left ui-icon-action ui-btn-active"  onclick="match()">Match it</button>
+
+  </div>
+
+  <!-- popups -->
+  <div data-role="popup" id="qimgPopup" data-overlay-theme="a" data-corners="false" data-tolerance="30,15">
+  <a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
+  <div id="qimgPopupDiv"></div>
+</div>
+
+ <div data-role="popup" id="quizInfoPopUp" class="ui-content" style="max-width:90%">
+    <a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
+<p>
+<p>
+	Choose a picture from Pictures Tab. Choose a caption from Captions tab. And Match it.
+	</p>
+
+		<ul>
+		<li>Click on <b><i>Match it</i></b>  button or the item to match.</li>
+		<li>Click on <b><i>Submit</i></b>  button after you complete matching all the pictures with captions</li>
+		<li>Click on  <button class="ui-btn ui-icon-back ui-btn-inline ui-btn-icon-notext"></button> in <b><i>Matched</i></b> tab to unmatch items</li>
+		</ul>
+	<p>You need to score  <b><i>atleast 60%</i></b> to qualify to the next round</p></br>
+
+Click on a picture to enlarge it.
+</p>
+</div>
+
+   <div data-role="popup" id="alertPopUp1" class="ui-content" style="max-width:90%">
+    <a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
+	<p>Choose a Picture and a Caption to Match</p>
+	</div>
+
+	<div data-role="popup" id="alertPopUp2" class="ui-content" style="max-width:90%">
+    <a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
+	<p>Match all the items before submitting</p>
+	</div>
+
+	<div data-role="popup" id="alertPopUp3" class="ui-content" style="max-width:90%">
+    <a href="#" data-rel="back" class="ui-btn ui-corner-all ui-shadow ui-btn-a ui-icon-delete ui-btn-icon-notext ui-btn-right">Close</a>
+	<p>You have matched all the items. Click on <b>Submit</b> button to submit your answers. Alternatively, you can verify your answers in the Matched tab before submitting</p>
+	</div>
+
+	<div data-role="popup" id="alertPopUp4" data-overlay-theme="a" data-dismissible="false" style="max-width:90%;" data-theme="a">
+    <div data-role="header">
+    <h1>Hurray!!!</h1>
+    </div>
+    <div role="main" class="ui-content">
+        <h3 class="ui-title"><span id="nextRoundSpan"></span></h3>
+ 
+        <button class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" onclick="goToNextRound()">Ok</button>
+<button class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" onclick="quitGame()">Quit Game</button>
+
+    </div>
+	</div>
+
+	<div data-role="popup" id="alertPopUp5" data-overlay-theme="a" data-dismissible="false" style="max-width:90%;" data-theme="a">
+    <div data-role="header">
+    <h1>Game Over</h1>
+    </div>
+    <div role="main" class="ui-content">
+        <h3 class="ui-title"><span id="gameOverSpan"></span></h3>
+ 
+        <button class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" onclick="gameOver()">Ok</button>
+
+    </div>
+	</div>
+
+	<div data-role="popup" id="alertPopUp6" data-dismissible="false" style="max-width:90%;" data-theme="a">
+    <div data-role="header">
+    <h1>Warning!!!</h1>
+    </div>
+    <div role="main" class="ui-content">
+        <h3 class="ui-title">This will end the current game. Do you still want to continue?</h3>
+
+ 		<button class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" onclick="goToHomeYesFromQuiz()">Yes</button>
+        <a href="#" class="ui-btn ui-corner-all ui-shadow ui-btn-inline ui-btn-b" data-rel="back">No</a>
+ 
+    </div>
+	</div>
+
+
+</div>
+
+
+
+
+
+</body>
+</html>
